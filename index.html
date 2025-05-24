@@ -3,115 +3,142 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CBOW Disco Sync</title>
+  <title>CBOW Sync</title>
   <style>
     body {
-      background: radial-gradient(circle, #222 0%, #000 100%);
-      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #111, #1a1a1a);
+      font-family: sans-serif;
       color: white;
-      margin: 0;
-      padding: 20px;
       text-align: center;
+      padding: 20px;
     }
-    h1 {
-      font-size: 2rem;
-      color: #00facc;
-    }
-    button {
-      background: linear-gradient(45deg, #00facc, #007bff);
-      color: black;
+    button, input {
+      background: linear-gradient(to right, #00facc, #007bff);
       border: none;
-      padding: 12px 25px;
+      padding: 15px 25px;
       margin: 10px;
       font-size: 1rem;
-      font-weight: bold;
       border-radius: 10px;
       cursor: pointer;
+      font-weight: bold;
+      color: black;
     }
-    #qr-container {
-      margin: 20px;
-      background: white;
-      display: inline-block;
-      padding: 10px;
-      border-radius: 8px;
-    }
-    iframe {
-      margin-top: 20px;
-      width: 90vw;
+    #player {
+      width: 80vw;
       height: 60vh;
-      border: 5px solid #00facc;
-      border-radius: 12px;
+      margin: 20px auto;
+      border-radius: 10px;
+      border: 3px solid #00facc;
     }
-    .playlist-grid {
+    .playlist-buttons {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      margin-top: 20px;
       gap: 10px;
+      margin-top: 20px;
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
 </head>
 <body>
-  <h1>CBOW Disco Sync</h1>
+  <h1>CBOW Sync 🎶</h1>
 
-  <div id="mode-select">
+  <div id="role-select">
     <button onclick="startAsScreen()">Start as Screen</button>
     <button onclick="startAsRemote()">Start as Remote</button>
   </div>
 
-  <div id="screen-mode" style="display:none;">
-    <p>Scan this QR code with your remote device:</p>
-    <div id="qr-container"><canvas id="qr-code"></canvas></div>
-    <iframe id="player" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+  <div id="screen-ui" style="display:none;">
+    <h2>Screen Mode</h2>
+    <p>Scan this QR code with another device to control music:</p>
+    <canvas id="qr"></canvas>
+    <p>Session Code: <span id="code"></span></p>
+    <iframe id="player" allowfullscreen allow="autoplay; encrypted-media"></iframe><br/>
+    <button onclick="skipVideo()">⏭ Skip</button>
   </div>
 
-  <div id="remote-mode" style="display:none;">
+  <div id="remote-ui" style="display:none;">
     <h2>Remote Mode</h2>
-    <div class="playlist-grid">
-      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuv_ob0fBF1pNz51GOcEaZHg')">Night</button>
-      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzut53IKwWGHQ3O65zMLxb4Ng')">Day</button>
-      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzutADjP7QTUccK6m8806elDp')">Jazz</button>
-      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuusFC_sirXMGJ3aS8ow5lGU')">Amharic</button>
-      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuvNRev3rmdp6PbKXhkJsBJT')">Road</button>
+    <input id="codeInput" placeholder="Enter 4-digit Code" maxlength="4" />
+    <button onclick="confirmCode()">Connect</button>
+    <div class="playlist-buttons" id="controls" style="display:none;">
+      <button onclick="send(0)">▶ Night</button>
+      <button onclick="send(1)">▶ Amharic</button>
+      <button onclick="send(2)">▶ Day</button>
+      <button onclick="send(3)">▶ Jazz</button>
+      <button onclick="send(4)">▶ Pop</button>
+      <button onclick="send(5)">▶ Road</button>
     </div>
   </div>
 
   <script>
+    const playlists = [
+      "PLtbHZoqAgzuv_ob0fBF1pNz51GOcEaZHg", // Night
+      "PLtbHZoqAgzuusFC_sirXMGJ3aS8ow5lGU", // Amharic
+      "PLtbHZoqAgzut53IKwWGHQ3O65zMLxb4Ng", // Day
+      "PLtbHZoqAgzutADjP7QTUccK6m8806elDp", // Jazz
+      "PLtbHZoqAgzuvcBnrkZ2r7j16u3D6jm91l", // Pop
+      "PLtbHZoqAgzuvNRev3rmdp6PbKXhkJsBJT"  // Road
+    ];
+
+    let sessionCode = "";
+    let currentPlaylistIndex = 0;
+    let currentVideoIndex = 0;
     let isScreen = false;
-    let sessionCode = '';
 
     function startAsScreen() {
+      sessionCode = Math.floor(1000 + Math.random() * 9000).toString();
       isScreen = true;
-      sessionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      document.getElementById("mode-select").style.display = "none";
-      document.getElementById("screen-mode").style.display = "block";
-      const url = window.location.href.split('?')[0] + '?remote=' + sessionCode;
-      QRCode.toCanvas(document.getElementById("qr-code"), url);
-      localStorage.setItem("cbow-screen-session", sessionCode);
-
-      setInterval(() => {
-        const incoming = localStorage.getItem("cbow-" + sessionCode);
-        if (incoming) {
-          document.getElementById("player").src = incoming;
-        }
-      }, 1000);
+      document.getElementById("role-select").style.display = "none";
+      document.getElementById("screen-ui").style.display = "block";
+      document.getElementById("code").textContent = sessionCode;
+      QRCode.toCanvas(document.getElementById("qr"), `https://ngmte-1.github.io/PlaylistSync/?remote=${sessionCode}`);
+      poll();
     }
 
     function startAsRemote() {
-      const params = new URLSearchParams(window.location.search);
-      sessionCode = params.get("remote");
-      if (!sessionCode) {
-        alert("Remote must be opened by scanning QR code.");
-        return;
+      const urlParams = new URLSearchParams(window.location.search);
+      const codeFromQR = urlParams.get("remote");
+      document.getElementById("role-select").style.display = "none";
+      document.getElementById("remote-ui").style.display = "block";
+      if (codeFromQR) {
+        document.getElementById("codeInput").value = codeFromQR;
+        confirmCode();
       }
-      document.getElementById("mode-select").style.display = "none";
-      document.getElementById("remote-mode").style.display = "block";
     }
 
-    function sendVideo(url) {
-      if (!sessionCode) return alert("Not connected to screen.");
-      localStorage.setItem("cbow-" + sessionCode, url);
+    function confirmCode() {
+      const input = document.getElementById("codeInput").value.trim();
+      if (!/^\d{4}$/.test(input)) return alert("Invalid 4-digit code.");
+      sessionCode = input;
+      document.getElementById("controls").style.display = "flex";
+    }
+
+    function send(index) {
+      currentPlaylistIndex = index;
+      currentVideoIndex = 0;
+      const url = `https://www.youtube.com/embed?listType=playlist&list=${playlists[index]}&index=${currentVideoIndex}&autoplay=1&rel=0`;
+      localStorage.setItem(`cbow-${sessionCode}`, JSON.stringify({ url, playlist: index, index: currentVideoIndex }));
+    }
+
+    function skipVideo() {
+      currentVideoIndex++;
+      const url = `https://www.youtube.com/embed?listType=playlist&list=${playlists[currentPlaylistIndex]}&index=${currentVideoIndex}&autoplay=1&rel=0`;
+      localStorage.setItem(`cbow-${sessionCode}`, JSON.stringify({ url, playlist: currentPlaylistIndex, index: currentVideoIndex }));
+    }
+
+    function poll() {
+      setInterval(() => {
+        const data = localStorage.getItem(`cbow-${sessionCode}`);
+        if (data) {
+          const { url, playlist, index } = JSON.parse(data);
+          if (document.getElementById("player").src.indexOf(url) === -1) {
+            document.getElementById("player").src = url;
+            currentPlaylistIndex = playlist;
+            currentVideoIndex = index;
+          }
+        }
+      }, 1000);
     }
   </script>
 </body>
