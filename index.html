@@ -3,119 +3,113 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CBOW Sync</title>
+  <title>CBOW Disco Sync</title>
   <style>
     body {
-      background: radial-gradient(circle, #1a1a1a, #000);
+      background: linear-gradient(135deg, #111, #222);
       color: white;
       font-family: 'Segoe UI', sans-serif;
       text-align: center;
       padding: 20px;
     }
-    button, input {
-      padding: 15px 30px;
-      font-size: 1.2rem;
+    button {
       background: linear-gradient(to right, #00facc, #007bff);
-      color: black;
       border: none;
-      border-radius: 10px;
+      padding: 15px 30px;
       margin: 10px;
-      cursor: pointer;
+      font-size: 1rem;
       font-weight: bold;
+      border-radius: 10px;
+      cursor: pointer;
+      color: black;
     }
-    #code-box {
-      font-size: 1.5rem;
-      margin-bottom: 20px;
-    }
-    .playlist-grid {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
+    #qr {
+      margin-top: 20px;
     }
     iframe {
       width: 90vw;
       height: 60vh;
-      border: 3px solid #00facc;
-      border-radius: 12px;
       margin-top: 20px;
+      border: 3px solid #00facc;
+      border-radius: 10px;
+      display: none;
     }
   </style>
 </head>
 <body>
-  <h1>CBOW Sync</h1>
+  <h1>CBOW Sync 🎶</h1>
 
-  <div id="mode-select">
-    <button onclick="startAsScreen()">Start as Screen</button>
-    <button onclick="startAsRemote()">Start as Remote</button>
+  <div id="role-select">
+    <button onclick="startScreen()">Start as Screen</button>
+    <button onclick="startRemote()">Start as Remote</button>
   </div>
 
   <div id="screen-ui" style="display:none;">
-    <div id="code-box">Session Code: <span id="session-code">------</span></div>
+    <h2>Screen Mode</h2>
+    <p>Scan this QR code to connect your remote:</p>
+    <div id="qr"></div>
     <iframe id="player" allowfullscreen allow="autoplay; encrypted-media"></iframe>
   </div>
 
   <div id="remote-ui" style="display:none;">
-    <input id="remote-code" placeholder="Enter Session Code" maxlength="6" />
-    <button onclick="connectToScreen()">Connect</button>
-    <div id="playlist-buttons" style="display:none;">
-      <h3>Select Playlist</h3>
-      <div class="playlist-grid">
-        <button onclick="send('PLtbHZoqAgzuv_ob0fBF1pNz51GOcEaZHg')">Night</button>
-        <button onclick="send('PLtbHZoqAgzuusFC_sirXMGJ3aS8ow5lGU')">Amharic</button>
-        <button onclick="send('PLtbHZoqAgzut53IKwWGHQ3O65zMLxb4Ng')">Day</button>
-        <button onclick="send('PLtbHZoqAgzutADjP7QTUccK6m8806elDp')">Jazz</button>
-        <button onclick="send('PLtbHZoqAgzuvcBnrkZ2r7j16u3D6jm91l')">Pop</button>
-        <button onclick="send('PLtbHZoqAgzuvNRev3rmdp6PbKXhkJsBJT')">Road</button>
-      </div>
+    <h2>Remote Mode</h2>
+    <div>
+      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuv_ob0fBF1pNz51GOcEaZHg')">Night</button>
+      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuusFC_sirXMGJ3aS8ow5lGU')">Amharic</button>
+      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzut53IKwWGHQ3O65zMLxb4Ng')">Day</button>
+      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzutADjP7QTUccK6m8806elDp')">Jazz</button>
+      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuvcBnrkZ2r7j16u3D6jm91l')">Pop</button>
+      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuvNRev3rmdp6PbKXhkJsBJT')">Road</button>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <script>
-    function startAsScreen() {
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const url = `${window.location.origin}${window.location.pathname}?screen=${code}`;
-      document.getElementById("session-code").innerText = code;
-      document.getElementById("mode-select").style.display = "none";
+    const urlParams = new URLSearchParams(window.location.search);
+    const role = urlParams.get("role");
+    const code = urlParams.get("code") || "1234";
+
+    const iframe = document.getElementById("player");
+
+    function startScreen() {
+      document.getElementById("role-select").style.display = "none";
       document.getElementById("screen-ui").style.display = "block";
-      history.replaceState({}, "", url);
+
+      const screenUrl = `${window.location.origin}${window.location.pathname}?role=remote&code=${code}`;
+      QRCode.toCanvas(document.createElement("canvas"), screenUrl, function (err, canvas) {
+        if (!err) {
+          canvas.style.width = "250px";
+          canvas.style.height = "250px";
+          document.getElementById("qr").appendChild(canvas);
+        }
+      });
+
+      // Listen for storage changes
+      setInterval(() => {
+        const data = localStorage.getItem("cbow-play");
+        if (data) {
+          const { link, targetCode } = JSON.parse(data);
+          if (targetCode === code) {
+            iframe.src = link;
+            iframe.style.display = "block";
+          }
+        }
+      }, 1000);
     }
 
-    function startAsRemote() {
-      document.getElementById("mode-select").style.display = "none";
+    function startRemote() {
+      document.getElementById("role-select").style.display = "none";
       document.getElementById("remote-ui").style.display = "block";
     }
 
-    function connectToScreen() {
-      const code = document.getElementById("remote-code").value.trim().toUpperCase();
-      if (!code || code.length < 4) {
-        alert("Please enter a valid code");
-        return;
-      }
-      const url = `${window.location.origin}${window.location.pathname}?remote=${code}`;
-      document.getElementById("playlist-buttons").style.display = "block";
-      history.replaceState({}, "", url);
+    function sendVideo(link) {
+      localStorage.setItem("cbow-play", JSON.stringify({ link: link, targetCode: code }));
+      alert("📡 Sent to screen!");
     }
 
-    function send(playlistId) {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get("remote");
-      if (!code) return alert("Not connected to screen");
-
-      const screenUrl = `${window.location.origin}${window.location.pathname}?screen=${code}&playlist=${playlistId}`;
-      window.open(screenUrl, "_blank");
-    }
-
-    // Handle screen receiving playlist
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("screen") && params.get("playlist")) {
-      document.getElementById("mode-select").style.display = "none";
-      document.getElementById("screen-ui").style.display = "block";
-      document.getElementById("session-code").innerText = params.get("screen");
-      const playlistId = params.get("playlist");
-      const url = `https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1&rel=0&modestbranding=1`;
-      document.getElementById("player").src = url;
-    }
+    // Auto-load mode from URL
+    if (role === "screen") startScreen();
+    else if (role === "remote") startRemote();
   </script>
 </body>
 </html>
