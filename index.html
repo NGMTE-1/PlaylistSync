@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CBOW Disco Sync</title>
+  <style>
+    body {
+      background: radial-gradient(circle at center, #111, #000);
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    button, input {
+      padding: 15px 25px;
+      font-size: 1rem;
+      background: linear-gradient(45deg, #00facc, #ff00cc);
+      border: none;
+      border-radius: 10px;
+      margin: 10px;
+      cursor: pointer;
+      color: black;
+      font-weight: bold;
+    }
+    iframe {
+      width: 90vw;
+      height: 70vh;
+      margin-top: 20px;
+      border: 4px solid #00facc;
+      border-radius: 10px;
+    }
+    #qr-box {
+      margin-top: 20px;
+    }
+    .playlist-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+</head>
+<body>
+  <h1>CBOW Disco Sync</h1>
+
+  <div id="setup">
+    <button onclick="startScreen()">Start as Screen</button>
+  </div>
+
+  <div id="screen" style="display:none;">
+    <h2>Screen Mode</h2>
+    <div id="qr-box"><canvas id="qr-code"></canvas></div>
+    <iframe id="player" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+  </div>
+
+  <div id="remote" style="display:none;">
+    <h2>Remote Mode</h2>
+    <div class="playlist-grid">
+      <button onclick="play('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuv_ob0fBF1pNz51GOcEaZHg')">Night</button>
+      <button onclick="play('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuusFC_sirXMGJ3aS8ow5lGU')">Amharic</button>
+      <button onclick="play('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzut53IKwWGHQ3O65zMLxb4Ng')">Day</button>
+      <button onclick="play('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzutADjP7QTUccK6m8806elDp')">Jazz</button>
+      <button onclick="play('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuvcBnrkZ2r7j16u3D6jm91l')">Pop</button>
+      <button onclick="play('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuvNRev3rmdp6PbKXhkJsBJT')">Road</button>
+      <button onclick="skip()">⏭ Skip</button>
+    </div>
+  </div>
+
+  <script>
+    let currentPlaylistIndex = 0;
+    const playlists = [
+      "https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuv_ob0fBF1pNz51GOcEaZHg",
+      "https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuusFC_sirXMGJ3aS8ow5lGU",
+      "https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzut53IKwWGHQ3O65zMLxb4Ng",
+      "https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzutADjP7QTUccK6m8806elDp",
+      "https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuvcBnrkZ2r7j16u3D6jm91l",
+      "https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuvNRev3rmdp6PbKXhkJsBJT"
+    ];
+
+    function startScreen() {
+      const code = Math.floor(1000 + Math.random() * 9000).toString();
+      const url = location.href.split("?")[0] + "?role=remote&code=" + code;
+      QRCode.toCanvas(document.getElementById("qr-code"), url, { width: 180 }, (err) => {
+        if (err) console.error(err);
+      });
+      localStorage.setItem("cbow-session", code);
+      document.getElementById("setup").style.display = "none";
+      document.getElementById("screen").style.display = "block";
+      setInterval(() => {
+        const data = localStorage.getItem("cbow-" + code);
+        if (data) {
+          document.getElementById("player").src = data;
+        }
+      }, 1000);
+    }
+
+    function play(url) {
+      const code = new URLSearchParams(window.location.search).get("code");
+      if (code) {
+        localStorage.setItem("cbow-" + code, url);
+      }
+    }
+
+    function skip() {
+      currentPlaylistIndex = (currentPlaylistIndex + 1) % playlists.length;
+      play(playlists[currentPlaylistIndex]);
+    }
+
+    window.onload = () => {
+      const params = new URLSearchParams(location.search);
+      if (params.get("role") === "remote" && params.get("code")) {
+        document.getElementById("setup").style.display = "none";
+        document.getElementById("remote").style.display = "block";
+      }
+    };
+  </script>
+</body>
+</html>
