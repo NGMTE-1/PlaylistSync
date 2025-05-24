@@ -6,110 +6,113 @@
   <title>CBOW Disco Sync</title>
   <style>
     body {
-      background: linear-gradient(135deg, #111, #222);
-      color: white;
+      background: radial-gradient(circle, #222 0%, #000 100%);
       font-family: 'Segoe UI', sans-serif;
-      text-align: center;
+      color: white;
+      margin: 0;
       padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2rem;
+      color: #00facc;
     }
     button {
-      background: linear-gradient(to right, #00facc, #007bff);
+      background: linear-gradient(45deg, #00facc, #007bff);
+      color: black;
       border: none;
-      padding: 15px 30px;
+      padding: 12px 25px;
       margin: 10px;
       font-size: 1rem;
       font-weight: bold;
       border-radius: 10px;
       cursor: pointer;
-      color: black;
     }
-    #qr {
-      margin-top: 20px;
+    #qr-container {
+      margin: 20px;
+      background: white;
+      display: inline-block;
+      padding: 10px;
+      border-radius: 8px;
     }
     iframe {
+      margin-top: 20px;
       width: 90vw;
       height: 60vh;
+      border: 5px solid #00facc;
+      border-radius: 12px;
+    }
+    .playlist-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
       margin-top: 20px;
-      border: 3px solid #00facc;
-      border-radius: 10px;
-      display: none;
+      gap: 10px;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 </head>
 <body>
-  <h1>CBOW Sync 🎶</h1>
+  <h1>CBOW Disco Sync</h1>
 
-  <div id="role-select">
-    <button onclick="startScreen()">Start as Screen</button>
-    <button onclick="startRemote()">Start as Remote</button>
+  <div id="mode-select">
+    <button onclick="startAsScreen()">Start as Screen</button>
+    <button onclick="startAsRemote()">Start as Remote</button>
   </div>
 
-  <div id="screen-ui" style="display:none;">
-    <h2>Screen Mode</h2>
-    <p>Scan this QR code to connect your remote:</p>
-    <div id="qr"></div>
+  <div id="screen-mode" style="display:none;">
+    <p>Scan this QR code with your remote device:</p>
+    <div id="qr-container"><canvas id="qr-code"></canvas></div>
     <iframe id="player" allowfullscreen allow="autoplay; encrypted-media"></iframe>
   </div>
 
-  <div id="remote-ui" style="display:none;">
+  <div id="remote-mode" style="display:none;">
     <h2>Remote Mode</h2>
-    <div>
+    <div class="playlist-grid">
       <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuv_ob0fBF1pNz51GOcEaZHg')">Night</button>
-      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuusFC_sirXMGJ3aS8ow5lGU')">Amharic</button>
       <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzut53IKwWGHQ3O65zMLxb4Ng')">Day</button>
       <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzutADjP7QTUccK6m8806elDp')">Jazz</button>
-      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuvcBnrkZ2r7j16u3D6jm91l')">Pop</button>
+      <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuusFC_sirXMGJ3aS8ow5lGU')">Amharic</button>
       <button onclick="sendVideo('https://www.youtube.com/embed/videoseries?list=PLtbHZoqAgzuvNRev3rmdp6PbKXhkJsBJT')">Road</button>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const role = urlParams.get("role");
-    const code = urlParams.get("code") || "1234";
+    let isScreen = false;
+    let sessionCode = '';
 
-    const iframe = document.getElementById("player");
+    function startAsScreen() {
+      isScreen = true;
+      sessionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      document.getElementById("mode-select").style.display = "none";
+      document.getElementById("screen-mode").style.display = "block";
+      const url = window.location.href.split('?')[0] + '?remote=' + sessionCode;
+      QRCode.toCanvas(document.getElementById("qr-code"), url);
+      localStorage.setItem("cbow-screen-session", sessionCode);
 
-    function startScreen() {
-      document.getElementById("role-select").style.display = "none";
-      document.getElementById("screen-ui").style.display = "block";
-
-      const screenUrl = `${window.location.origin}${window.location.pathname}?role=remote&code=${code}`;
-      QRCode.toCanvas(document.createElement("canvas"), screenUrl, function (err, canvas) {
-        if (!err) {
-          canvas.style.width = "250px";
-          canvas.style.height = "250px";
-          document.getElementById("qr").appendChild(canvas);
-        }
-      });
-
-      // Listen for storage changes
       setInterval(() => {
-        const data = localStorage.getItem("cbow-play");
-        if (data) {
-          const { link, targetCode } = JSON.parse(data);
-          if (targetCode === code) {
-            iframe.src = link;
-            iframe.style.display = "block";
-          }
+        const incoming = localStorage.getItem("cbow-" + sessionCode);
+        if (incoming) {
+          document.getElementById("player").src = incoming;
         }
       }, 1000);
     }
 
-    function startRemote() {
-      document.getElementById("role-select").style.display = "none";
-      document.getElementById("remote-ui").style.display = "block";
+    function startAsRemote() {
+      const params = new URLSearchParams(window.location.search);
+      sessionCode = params.get("remote");
+      if (!sessionCode) {
+        alert("Remote must be opened by scanning QR code.");
+        return;
+      }
+      document.getElementById("mode-select").style.display = "none";
+      document.getElementById("remote-mode").style.display = "block";
     }
 
-    function sendVideo(link) {
-      localStorage.setItem("cbow-play", JSON.stringify({ link: link, targetCode: code }));
-      alert("📡 Sent to screen!");
+    function sendVideo(url) {
+      if (!sessionCode) return alert("Not connected to screen.");
+      localStorage.setItem("cbow-" + sessionCode, url);
     }
-
-    // Auto-load mode from URL
-    if (role === "screen") startScreen();
-    else if (role === "remote") startRemote();
   </script>
 </body>
 </html>
